@@ -20,6 +20,9 @@ use std::{
     process::{Child, Stdio},
 };
 
+/// Module that contains traits that improves writing scripts experience
+pub mod scripting;
+
 /// Script metadata that every script should send to the main_crate  when starting up after receiving the greeting message [Message::Greeting]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ScriptInfo {
@@ -49,7 +52,7 @@ impl ScriptInfo {
 /// - *OneShot* scripts are expected to be spawned(process::Command::new) by the main crate each time they are used, this should be preferred if performance and keeping state are not a concern since it has some nice advantage which is the allure of hot reloading (recompiling the script will affect the main crate while its running)
 ///
 /// - *Daemon* scripts are expected to run indefinitely, the main advantage is better performance and keeping the state
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ScriptType {
     /// Scripts that is executed each time
     OneShot,
