@@ -13,6 +13,13 @@
 //! Goals:
 //! - Be as easy as possible to include on already established projects
 //! - Strive for maximum compile time guarantees
+//!
+//! This crate was extracted from [IRust](https://github.com/sigmaSd/IRust)
+//!
+//! Taking *IRust* as an example:
+//! - It has an API crate where hooks are defined [irust_api](https://github.com/sigmaSd/IRust/blob/master/crates/irust_api/src/lib.rs#L22)
+//! - It trigger hooks on the main crate [irust](https://github.com/sigmaSd/IRust/blob/master/crates/irust/src/irust.rs#L136)
+//! - And a script example [vim_mode](https://github.com/sigmaSd/IRust/tree/master/scripts_examples/script4/irust_vim)
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
