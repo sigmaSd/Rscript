@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 //! Crate to easily script any rust project
 //! # Rscript
@@ -29,6 +29,9 @@ use std::{
 
 /// Module that contains traits that improves writing scripts experience
 pub mod scripting;
+
+mod error;
+pub use error::Error;
 
 /// Script metadata that every script should send to the main_crate  when starting up after receiving the greeting message [Message::Greeting]
 #[derive(Serialize, Deserialize, Debug)]
@@ -134,7 +137,7 @@ impl ScriptManager {
     ) -> impl Iterator<Item = Result<<H as Hook>::Output, bincode::Error>> + 'a {
         self.scripts.iter_mut().filter_map(move |script| {
             if script.is_active() && script.is_listening_for::<H>() {
-                Some(script.trigger(&hook))
+                Some(script.trigger_internal(&hook))
             } else {
                 None
             }
@@ -157,6 +160,7 @@ impl Drop for ScriptManager {
 }
 
 /// A script abstraction
+// The user should not be able to construct a Script manually
 #[derive(Debug)]
 pub struct Script {
     metadata: ScriptInfo,
@@ -194,16 +198,30 @@ impl Script {
     pub fn is_active(&self) -> bool {
         matches!(self.state, State::Active)
     }
-}
-impl Script {
-    // private
-    fn is_listening_for<H: Hook>(&self) -> bool {
+    /// Check if a script is listening for a hook
+    pub fn is_listening_for<H: Hook>(&self) -> bool {
         self.metadata
             .hooks
             .iter()
             .any(|hook| hook.as_str() == H::NAME)
     }
-    fn trigger<H: Hook>(&mut self, hook: &H) -> Result<<H as Hook>::Output, bincode::Error> {
+    /// Trigger a hook on the script, this disregards the script state as in the hook will be triggered even if the script is inactive\
+    /// If the script is not listening for the specified hook, an error will be returned
+    pub fn trigger<H: Hook>(&mut self, hook: &H) -> Result<<H as Hook>::Output, Error> {
+        if self.is_listening_for::<H>() {
+            self.trigger_internal(hook).map_err(Error::Bincode)
+        } else {
+            Err(Error::ScriptIsNotListeningForHook)
+        }
+    }
+}
+
+impl Script {
+    // private
+    fn trigger_internal<H: Hook>(
+        &mut self,
+        hook: &H,
+    ) -> Result<<H as Hook>::Output, bincode::Error> {
         let trigger_hook_common = |script: &mut Child| {
             let mut stdin = script.stdin.as_mut().expect("stdin is piped");
             let stdout = script.stdout.as_mut().expect("stdout is piped");
