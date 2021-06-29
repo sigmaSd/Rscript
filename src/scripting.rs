@@ -8,6 +8,7 @@ use std::io::Write;
 ///  # use rscript::*;
 ///  # use rscript::scripting::Scripter;
 ///
+///  // The hook should usually be on a common api crate.
 ///  #[derive(serde::Serialize, serde::Deserialize)]
 ///  struct MyHook;
 ///  impl Hook for MyHook{
@@ -18,6 +19,7 @@ use std::io::Write;
 ///  struct MyScript;
 ///  impl MyScript {
 ///     fn run(&mut self, hook: &str) {
+///         let _hook: MyHook = bincode::deserialize_from(std::io::stdin()).unwrap();
 ///         eprintln!("hook: {} was triggered", hook);
 ///     }
 ///  }
