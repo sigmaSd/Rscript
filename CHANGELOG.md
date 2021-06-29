@@ -1,3 +1,7 @@
+*0.5.0*
+- Remove [scripting::Scripter::greet] from the public API, the user is now only required to use [scripting::Scripter::execute] which will handle the greeting.
+- Improve the documentation
+
 *0.4.0*
 - Fix oneshot script crashing in scripting::greet
 
