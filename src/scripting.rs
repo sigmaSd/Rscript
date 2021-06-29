@@ -49,14 +49,18 @@ pub trait Scripter {
 
         let message: Message = bincode::deserialize_from(&mut stdin).unwrap();
 
-        assert_eq!(message, Message::Greeting);
+        if message == Message::Greeting {
+            let metadata = ScriptInfo::new(Self::name(), Self::script_type(), Self::hooks());
+            bincode::serialize_into(&mut stdout, &metadata).unwrap();
+            stdout.flush().unwrap();
 
-        let metadata = ScriptInfo::new(Self::name(), Self::script_type(), Self::hooks());
-        bincode::serialize_into(&mut stdout, &metadata).unwrap();
-        stdout.flush().unwrap();
-
-        if matches!(Self::script_type(), ScriptType::OneShot) {
-            std::process::exit(0);
+            // if the script is oneshot it should exit, it will be run again but with message == [Message::Execute]
+            if matches!(Self::script_type(), ScriptType::OneShot) {
+                std::process::exit(0);
+            }
+        } else {
+            // message == Message::Execute
+            // the script will continue its execution
         }
     }
     /// This function will handle receiving hooks, the user is expected to provide a function that acts on a hook name, the user function should use the hook name to read the actual hook from stdin\
@@ -83,7 +87,11 @@ pub trait Scripter {
         let mut stdin = std::io::stdin();
 
         loop {
-            let _message: Message = bincode::deserialize_from(&mut stdin).unwrap();
+            // OneShot scripts calls [greet] each time they are run, so [Message] is already received
+            if matches!(Self::script_type(), ScriptType::Daemon) {
+                let _message: Message = bincode::deserialize_from(&mut stdin).unwrap();
+            }
+
             let hook_name: String = bincode::deserialize_from(&mut stdin).unwrap();
 
             func(&hook_name);
