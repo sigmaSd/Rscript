@@ -2,19 +2,23 @@ use super::{Message, ScriptInfo, ScriptType};
 use std::io::Write;
 
 /// Trait that can be implemented on a script abstraction struct\
-/// The implementer should provide [Scripter::script_type] [Scripter::name] and [Scripter::hooks]\
-///  The struct should call [Scripter::greet] then [Scripter::execute]\
-///  ```rust, ignore
-///  # // FIXME: rscript::scripting -> erros with could not find scripting
+/// The implementer should provide [Scripter::script_type], [Scripter::name] and [Scripter::hooks]\
+///  The struct should call [Scripter::execute]\
+///  ```rust, no_run
 ///  # use rscript::*;
+///  # use rscript::scripting::Scripter;
 ///
+///  #[derive(serde::Serialize, serde::Deserialize)]
 ///  struct MyHook;
-///  impl Hook for MyHook{}
+///  impl Hook for MyHook{
+///     const NAME: &'static str = "MyHook";
+///     type Output = ();
+///  }
 ///
 ///  struct MyScript;
 ///  impl MyScript {
-///     fn run(hook: &str) {
-///         println!("hook: {} was triggered", hook);
+///     fn run(&mut self, hook: &str) {
+///         eprintln!("hook: {} was triggered", hook);
 ///     }
 ///  }
 ///  impl Scripter for MyScript {
@@ -30,9 +34,8 @@ use std::io::Write;
 ///  }
 ///
 ///  fn main() {
-///     let my_script = MyScript;
-///     MyScript::greet();
-///     MyScript::execute(|hook_name|MyScript::run(&mut my_script, hook_name));
+///     let mut my_script = MyScript;
+///     MyScript::execute(&mut |hook_name|MyScript::run(&mut my_script, hook_name));
 ///  }
 pub trait Scripter {
     /// The name of the script
@@ -42,29 +45,11 @@ pub trait Scripter {
     /// The hooks that the script is interested in
     fn hooks() -> &'static [&'static str];
 
-    /// This function should be called at the start, it will handle receving [Message::Greeting] , responding with a [ScriptInfo] and exiting if the script type is [ScriptType::OneShot]
-    fn greet() {
-        let mut stdin = std::io::stdin();
-        let mut stdout = std::io::stdout();
-
-        let message: Message = bincode::deserialize_from(&mut stdin).unwrap();
-
-        if message == Message::Greeting {
-            let metadata = ScriptInfo::new(Self::name(), Self::script_type(), Self::hooks());
-            bincode::serialize_into(&mut stdout, &metadata).unwrap();
-            stdout.flush().unwrap();
-
-            // if the script is oneshot it should exit, it will be run again but with message == [Message::Execute]
-            if matches!(Self::script_type(), ScriptType::OneShot) {
-                std::process::exit(0);
-            }
-        } else {
-            // message == Message::Execute
-            // the script will continue its execution
-        }
-    }
-    /// This function will handle receiving hooks, the user is expected to provide a function that acts on a hook name, the user function should use the hook name to read the actual hook from stdin\
-    /// example of a user function:
+    /// This function is the script entry point.\
+    /// 1. It handles receiving [Message::Greeting] , responding with a [ScriptInfo] and exiting if the script type is [ScriptType::OneShot]
+    /// 2. It handles receiving hooks, the user is expected to provide a function that acts on a hook name, the user function should use the hook name to read the actual hook from stdin
+    ///
+    /// Example of a user function:
     /// ```rust
     /// # use rscript::Hook;
     /// # #[derive(serde::Serialize, serde::Deserialize)]
@@ -84,10 +69,29 @@ pub trait Scripter {
     ///     }
     /// }
     fn execute(func: &mut dyn FnMut(&str)) {
+        // 1 - Handle greeting
         let mut stdin = std::io::stdin();
+        let mut stdout = std::io::stdout();
 
+        let message: Message = bincode::deserialize_from(&mut stdin).unwrap();
+
+        if message == Message::Greeting {
+            let metadata = ScriptInfo::new(Self::name(), Self::script_type(), Self::hooks());
+            bincode::serialize_into(&mut stdout, &metadata).unwrap();
+            stdout.flush().unwrap();
+
+            // if the script is OneShot it should exit, it will be run again but with message == [Message::Execute]
+            if matches!(Self::script_type(), ScriptType::OneShot) {
+                std::process::exit(0);
+            }
+        } else {
+            // message == Message::Execute
+            // the script will continue its execution
+        }
+
+        // 2 - Handle Executing
         loop {
-            // OneShot scripts calls [greet] each time they are run, so [Message] is already received
+            // OneShot scripts handles greeting each time they are run, so [Message] is already received
             if matches!(Self::script_type(), ScriptType::Daemon) {
                 let _message: Message = bincode::deserialize_from(&mut stdin).unwrap();
             }

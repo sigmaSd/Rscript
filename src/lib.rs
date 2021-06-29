@@ -261,7 +261,6 @@ impl Script {
 /// The associated NAME is needed in order to differentiate the hooks received in the script\
 /// The hook struct is required to implement serde::Serialize+Deserialize, so it can be used by bincode\
 /// The hooks should be declared on an external crate (my-project-api for example) so they can be used both by the main crate and the script\
-/// example:
 /// ```rust
 /// #[derive(serde::Serialize, serde::Deserialize)]
 /// struct Eval(String);
