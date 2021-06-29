@@ -1,3 +1,6 @@
+*0.4.0*
+- Fix oneshot script crashing in scripting::greet
+
 *0.3.0*
 Add 2 new public API methods: 
 - `Script::is_listening_for` -> check if a script is listening for a hook 
