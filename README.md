@@ -21,4 +21,6 @@ Taking *IRust* as an example:
 - It trigger hooks on the main crate [irust](https://github.com/sigmaSd/IRust/blob/master/crates/irust/src/irust.rs#L136)
 - And a script example [vim_mode](https://github.com/sigmaSd/IRust/tree/master/scripts_examples/script4/irust_vim)
 
+Check out the [examples](https://github.com/sigmaSd/Rscript/tree/master/examples) for more info.
+
 License: MIT
