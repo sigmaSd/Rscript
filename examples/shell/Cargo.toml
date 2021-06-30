@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+    "./shell-main",
+    "./shell-api",
+    "./scripts/eval-script",
+    "./scripts/random-script",
+]
+

@@ -1,0 +1,54 @@
+use rscript::{scripting::Scripter, Hook};
+
+struct Evaluator;
+impl Scripter for Evaluator {
+    fn name() -> &'static str {
+        "evaluator"
+    }
+
+    fn script_type() -> rscript::ScriptType {
+        rscript::ScriptType::OneShot
+    }
+
+    fn hooks() -> &'static [&'static str] {
+        &[shell_api::Eval::NAME, shell_api::Shutdown::NAME]
+    }
+}
+
+impl Evaluator {
+    fn run(&self, hook: &str) {
+        match hook {
+            shell_api::Eval::NAME => {
+                let eval_hook: shell_api::Eval = Self::read();
+                let shell_api::Eval(input) = eval_hook;
+                let output: String = self.eval(&input);
+                Self::write(&output);
+            }
+            shell_api::Shutdown::NAME => {
+                let _eval_hook: shell_api::Shutdown = Self::read();
+                // stderr is *not* piped so it can be used by scripts
+                eprintln!("bye from shell-script");
+            }
+
+            _ => unreachable!(),
+        }
+    }
+    fn eval(&self, input: &str) -> String {
+        let mut input = input.split_whitespace();
+        String::from_utf8(
+            std::process::Command::new(input.next().unwrap())
+                .args(input.collect::<Vec<_>>())
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+    }
+}
+
+fn main() {
+    let evaluator = Evaluator;
+    Evaluator::execute(&mut |hook| {
+        evaluator.run(hook);
+    });
+}
