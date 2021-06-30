@@ -11,7 +11,7 @@ use std::io::Write;
 ///  // The hook should usually be on a common api crate.
 ///  #[derive(serde::Serialize, serde::Deserialize)]
 ///  struct MyHook;
-///  impl Hook for MyHook{
+///  impl Hook for MyHook {
 ///     const NAME: &'static str = "MyHook";
 ///     type Output = ();
 ///  }
@@ -19,7 +19,7 @@ use std::io::Write;
 ///  struct MyScript;
 ///  impl MyScript {
 ///     fn run(&mut self, hook: &str) {
-///         let _hook: MyHook = bincode::deserialize_from(std::io::stdin()).unwrap();
+///         let _hook: MyHook = Self::read();
 ///         eprintln!("hook: {} was triggered", hook);
 ///     }
 ///  }
@@ -40,6 +40,7 @@ use std::io::Write;
 ///     MyScript::execute(&mut |hook_name|MyScript::run(&mut my_script, hook_name));
 ///  }
 pub trait Scripter {
+    // Required methods
     /// The name of the script
     fn name() -> &'static str;
     /// The script type Daemon/OneShot
@@ -47,6 +48,15 @@ pub trait Scripter {
     /// The hooks that the script is interested in
     fn hooks() -> &'static [&'static str];
 
+    // Provided methods
+    /// Convenient method to read a hook from stdin
+    fn read<H: crate::Hook>() -> H {
+        bincode::deserialize_from(std::io::stdin()).unwrap()
+    }
+    /// Convenient method to write a value to stdout
+    fn write<T: serde::Serialize>(value: &T) {
+        bincode::serialize_into(std::io::stdout(), value).unwrap()
+    }
     /// This function is the script entry point.\
     /// 1. It handles receiving [Message::Greeting] , responding with a [ScriptInfo] and exiting if the script type is [ScriptType::OneShot]
     /// 2. It handles receiving hooks, the user is expected to provide a function that acts on a hook name, the user function should use the hook name to read the actual hook from stdin
@@ -54,17 +64,24 @@ pub trait Scripter {
     /// Example of a user function:
     /// ```rust
     /// # use rscript::Hook;
+    /// # use rscript::scripting::Scripter;
     /// # #[derive(serde::Serialize, serde::Deserialize)]
     /// # struct MyHook{}
     /// # impl Hook for MyHook {
     /// #   const NAME: &'static str = "MyHook";
     /// #   type Output = usize;
     /// # }
+    /// # struct MyScript;
+    /// # impl Scripter for MyScript {
+    /// #   fn name() -> &'static str { todo!() }
+    /// #   fn script_type() -> rscript::ScriptType { todo!() }
+    /// #   fn hooks() -> &'static [&'static str] { todo!() }
+    /// # }
     ///
     /// fn run(hook_name: &str) {
     ///     match hook_name {
     ///         MyHook::NAME => {
-    ///             let hook: MyHook = bincode::deserialize_from(std::io::stdin()).unwrap();
+    ///             let hook: MyHook = MyScript::read();
     ///             /*handle hook*/
     ///         }
     ///         _ => unreachable!()
