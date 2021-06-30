@@ -1,3 +1,8 @@
+*0.6.0*
+- Add 2 new functions to the public API, [Scripter::read] [Scripter::write], these functions are convenient methods to read hooks from stdin and write a value to stdout respectively
+- Trait Hook now requires [serde::de::DeserializeOwned]
+- Add an example of using Rscript
+
 *0.5.0*
 - Remove [scripting::Scripter::greet] from the public API, the user is now only required to use [scripting::Scripter::execute] which will handle the greeting.
 - Improve the documentation
