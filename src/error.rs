@@ -12,9 +12,9 @@ pub enum Error {
     /// The script is written for a different version of the program
     ScriptVersionMismatch {
         /// The program actual version
-        program_version: Version,
+        program_actual_version: Version,
         /// The version of the program expected by the script
-        script_version: Version,
+        program_expected_version: Version,
     },
 }
 impl std::fmt::Display for Error {
@@ -27,8 +27,8 @@ impl std::fmt::Display for Error {
                 "Could not trigger the hook, because the script is not listening for it"
             ),
             Error::ScriptVersionMismatch {
-                program_version,
-                script_version,
+                program_actual_version: program_version,
+                program_expected_version: script_version,
             } => {
                 write!(
                     f,

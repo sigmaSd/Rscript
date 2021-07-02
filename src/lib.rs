@@ -144,8 +144,8 @@ impl ScriptManager {
             // Check if the provided version matches the script version
             if version != &metadata.version {
                 return Err(Error::ScriptVersionMismatch {
-                    program_version: version.clone(),
-                    script_version: metadata.version,
+                    program_actual_version: version.clone(),
+                    program_expected_version: metadata.version,
                 });
             }
 
