@@ -1,3 +1,9 @@
+*0.7.0*
+- Add versioning to the scripts, this is important in order to prevent incompatibilities which gives subtle undefined errors
+    - [scripting::Scripter] now requires the user to implement [Scripter::version]
+    - [add_scripts_by_path] now takes a second argument [Version] and returns [rscript::Error] instead of [bincode::Error]
+    - Add a new error [ScriptVersionMisMatch]
+
 *0.6.0*
 - Add 2 new functions to the public API, [Scripter::read] [Scripter::write], these functions are convenient methods to read hooks from stdin and write a value to stdout respectively
 - Trait Hook now requires [serde::de::DeserializeOwned]
