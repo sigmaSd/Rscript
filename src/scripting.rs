@@ -52,7 +52,6 @@ pub trait Scripter {
     fn script_type() -> ScriptType;
     /// The hooks that the script is interested in
     fn hooks() -> &'static [&'static str];
-
     /// The version of the program that the script will run against, when running the script with [Scripter::execute] it will use this version to check if there is an incompatibility between the script and the program
     fn version() -> Version;
 
