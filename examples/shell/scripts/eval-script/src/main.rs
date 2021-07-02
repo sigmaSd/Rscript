@@ -1,4 +1,4 @@
-use rscript::{scripting::Scripter, Hook};
+use rscript::{scripting::Scripter, Hook, Version};
 
 struct Evaluator;
 impl Scripter for Evaluator {
@@ -12,6 +12,9 @@ impl Scripter for Evaluator {
 
     fn hooks() -> &'static [&'static str] {
         &[shell_api::Eval::NAME, shell_api::Shutdown::NAME]
+    }
+    fn version() -> Version {
+        Version::Exact("shell-0.1.0".into())
     }
 }
 

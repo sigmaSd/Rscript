@@ -44,18 +44,37 @@ pub struct ScriptInfo {
     pub script_type: ScriptType,
     /// The hooks that the script wants to listen to
     pub hooks: Box<[String]>,
+    /// The version of the program that the script will run against
+    pub version: Version,
 }
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+/// The version of the program that the script will run against, currently only exact versioning is supported
+pub enum Version {
+    /// This exact version must match
+    Exact(String),
+}
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exact(version) => write!(f, "{}", version),
+        }
+    }
+}
+
 impl ScriptInfo {
     /// Create a new script metadata, the new constructor tries to add more ergonomics
     pub fn new(
         name: &'static str,
         script_type: ScriptType,
         hooks: &'static [&'static str],
+        version: Version,
     ) -> Self {
         Self {
             name: name.into(),
             script_type,
             hooks: hooks.iter().map(|hook| String::from(*hook)).collect(),
+            version,
         }
     }
 }
@@ -92,10 +111,23 @@ pub enum Message {
 }
 
 impl ScriptManager {
-    /// Look for scripts in the specified folder
+    /// Look for scripts in the specified folder\
+    /// It requires specifying a [Version] so the script manager can check for incompatibility and if that's the case it will return an error: [Error::ScriptVersionMismatch]\
     /// The script manager will send a [Message::Greeting] for every script found and the scripts must respond with [ScriptInfo]
-    pub fn add_scripts_by_path<P: AsRef<Path>>(&mut self, path: P) -> Result<(), bincode::Error> {
-        fn start_script(path: &Path) -> Result<Script, bincode::Error> {
+    ///
+    /// ```rust, no_run
+    /// # use rscript::*;
+    /// let mut sm = ScriptManager::default();
+    /// let scripts_path: std::path::PathBuf = todo!(); // Defined by the user
+    /// const VERSION: &'static str = concat!("main_crate-", env!("CARGO_PKG_VERSION"));
+    /// sm.add_scripts_by_path(scripts_path, Version::Exact(VERSION.into()));
+    /// ```
+    pub fn add_scripts_by_path<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        version: Version,
+    ) -> Result<(), Error> {
+        fn start_script(path: &Path, version: &Version) -> Result<Script, Error> {
             let mut script = std::process::Command::new(path)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -107,8 +139,17 @@ impl ScriptManager {
 
             // Receive ScriptInfo
             let stdout = script.stdout.as_mut().expect("stdout is piped");
-
             let metadata: ScriptInfo = bincode::deserialize_from(stdout)?;
+
+            // Check if the provided version matches the script version
+            if version != &metadata.version {
+                return Err(Error::ScriptVersionMismatch {
+                    program_version: version.clone(),
+                    script_version: metadata.version,
+                });
+            }
+
+            // Save script depending on its type
             let script = if matches!(metadata.script_type, ScriptType::Daemon) {
                 ScriptTypeInternal::Daemon(script)
             } else {
@@ -126,7 +167,7 @@ impl ScriptManager {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
-                self.scripts.push(start_script(&path)?);
+                self.scripts.push(start_script(&path, &version)?);
             }
         }
         Ok(())

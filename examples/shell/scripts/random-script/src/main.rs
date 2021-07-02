@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use rscript::{scripting::Scripter, Hook};
+use rscript::{scripting::Scripter, Hook, Version};
 
 struct Randomize;
 impl Scripter for Randomize {
@@ -14,6 +14,10 @@ impl Scripter for Randomize {
 
     fn hooks() -> &'static [&'static str] {
         &[shell_api::RandomNumber::NAME]
+    }
+
+    fn version() -> Version {
+        Version::Exact("shell-0.1.0".into())
     }
 }
 

@@ -1,4 +1,4 @@
-use rscript::ScriptManager;
+use rscript::{ScriptManager, Version};
 
 /// Simple try macros to ignore errors
 macro_rules! mtry {
@@ -7,12 +7,16 @@ macro_rules! mtry {
     };
 }
 
+const VERSION: &str = concat!("shell-", env!("CARGO_PKG_VERSION"));
+
 fn main() {
     let mut script_manager = ScriptManager::default();
     // FIXME: Auto compile instead
     let scripts_path = std::env::temp_dir().join("rscript_shell");
     let _ = std::fs::create_dir_all(&scripts_path);
-    script_manager.add_scripts_by_path(scripts_path).unwrap();
+    script_manager
+        .add_scripts_by_path(scripts_path, Version::Exact(VERSION.into()))
+        .unwrap();
 
     loop {
         let input = {
