@@ -1,3 +1,8 @@
+*0.9.0*
+- Added a new public method to [scripting::Scripter] [Scripter::script_static_assert] which is useful to check at compile time if the script output matches the hook's expected output
+
+- [Hook::Output] now requires serde::Serialize
+
 *0.8.0*
 - Use semver crate [Version] instead of a custom type, this allows among other benefits to specify different comparators for version requirement (>= > ==, etc..)
 
