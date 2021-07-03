@@ -309,5 +309,5 @@ pub trait Hook: Serialize + DeserializeOwned {
     /// The name of the hook, required to distinguish the received hook on the script side
     const NAME: &'static str;
     /// The output type of the script
-    type Output: DeserializeOwned;
+    type Output: Serialize + DeserializeOwned;
 }
