@@ -1,4 +1,4 @@
-use crate::VersionReq;
+use crate::{Hook, VersionReq};
 
 use super::{Message, ScriptInfo, ScriptType};
 use std::io::Write;
@@ -57,7 +57,7 @@ pub trait Scripter {
 
     // Provided methods
     /// Convenient method to read a hook from stdin
-    fn read<H: crate::Hook>() -> H {
+    fn read<H: Hook>() -> H {
         bincode::deserialize_from(std::io::stdin()).unwrap()
     }
     /// Convenient method to write a value to stdout
@@ -139,4 +139,6 @@ pub trait Scripter {
             }
         }
     }
+    /// Check at compile time that the script output matches the output expected by the provided hook
+    fn script_static_assert<H: Hook>(_output: &<H as Hook>::Output) {}
 }
