@@ -1,3 +1,6 @@
+*0.8.0*
+- Use semver crate [Version] instead of a custom type, this allows among other benefits to specify different comparators for version requirement (>= > ==, etc..)
+
 *0.7.0*
 - Add versioning to the scripts, this is important in order to prevent incompatibilities which gives subtle undefined errors
     - [scripting::Scripter] now requires the user to implement [Scripter::version]
