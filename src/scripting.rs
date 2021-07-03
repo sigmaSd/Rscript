@@ -91,7 +91,8 @@ pub trait Scripter {
     ///     match hook_name {
     ///         MyHook::NAME => {
     ///             let hook: MyHook = MyScript::read();
-    ///             /*handle hook*/
+    ///             let output = todo!(); // prepare the corresponding hook output
+    ///             MyScript::write::<MyHook>(&output);
     ///         }
     ///         _ => unreachable!()
     ///     }
