@@ -1,10 +1,10 @@
-use crate::Version;
+use crate::VersionReq;
 
 use super::{Message, ScriptInfo, ScriptType};
 use std::io::Write;
 
 /// Trait that can be implemented on a script abstraction struct\
-/// The implementer should provide [Scripter::script_type], [Scripter::name], [Scripter::hooks] and [Scripter::version]\
+/// The implementer should provide [Scripter::script_type], [Scripter::name], [Scripter::hooks] and [Scripter::version_requirement]\
 ///  The struct should call [Scripter::execute]\
 ///  ```rust, no_run
 ///  # use rscript::*;
@@ -35,8 +35,8 @@ use std::io::Write;
 ///     fn hooks() -> &'static [&'static str] {
 ///         &[MyHook::NAME]
 ///     }
-///     fn version() -> Version {
-///         Version::Exact("main_crate-0.1.0".into())
+///     fn version_requirement() -> VersionReq {
+///         VersionReq::parse(">=0.1.0").expect("version requirement is correct")
 ///     }
 ///  }
 ///
@@ -52,8 +52,8 @@ pub trait Scripter {
     fn script_type() -> ScriptType;
     /// The hooks that the script is interested in
     fn hooks() -> &'static [&'static str];
-    /// The version of the program that the script will run against, when running the script with [Scripter::execute] it will use this version to check if there is an incompatibility between the script and the program
-    fn version() -> Version;
+    /// The version requirement of the program that the script will run against, when running the script with [Scripter::execute] it will use this version to check if there is an incompatibility between the script and the program
+    fn version_requirement() -> VersionReq;
 
     // Provided methods
     /// Convenient method to read a hook from stdin
@@ -70,7 +70,7 @@ pub trait Scripter {
     ///
     /// Example of a user function:
     /// ```rust
-    /// # use rscript::{Version, Hook};
+    /// # use rscript::{VersionReq, Hook};
     /// # use rscript::scripting::Scripter;
     /// # #[derive(serde::Serialize, serde::Deserialize)]
     /// # struct MyHook{}
@@ -83,7 +83,7 @@ pub trait Scripter {
     /// #   fn name() -> &'static str { todo!() }
     /// #   fn script_type() -> rscript::ScriptType { todo!() }
     /// #   fn hooks() -> &'static [&'static str] { todo!() }
-    /// #   fn version() -> Version { todo!() }
+    /// #   fn version_requirement() -> VersionReq { todo!() }
     /// # }
     ///
     /// fn run(hook_name: &str) {
@@ -107,7 +107,7 @@ pub trait Scripter {
                 Self::name(),
                 Self::script_type(),
                 Self::hooks(),
-                Self::version(),
+                Self::version_requirement(),
             );
             bincode::serialize_into(&mut stdout, &metadata).unwrap();
             stdout.flush().unwrap();

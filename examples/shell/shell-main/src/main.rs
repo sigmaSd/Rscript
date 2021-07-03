@@ -7,7 +7,7 @@ macro_rules! mtry {
     };
 }
 
-const VERSION: &str = concat!("shell-", env!("CARGO_PKG_VERSION"));
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let mut script_manager = ScriptManager::default();
@@ -15,7 +15,10 @@ fn main() {
     let scripts_path = std::env::temp_dir().join("rscript_shell");
     let _ = std::fs::create_dir_all(&scripts_path);
     script_manager
-        .add_scripts_by_path(scripts_path, Version::Exact(VERSION.into()))
+        .add_scripts_by_path(
+            scripts_path,
+            Version::parse(VERSION).expect("version is correct"),
+        )
         .unwrap();
 
     loop {

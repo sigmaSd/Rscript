@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use rscript::{scripting::Scripter, Hook, Version};
+use rscript::{scripting::Scripter, Hook, VersionReq};
 
 struct Randomize;
 impl Scripter for Randomize {
@@ -16,8 +16,8 @@ impl Scripter for Randomize {
         &[shell_api::RandomNumber::NAME]
     }
 
-    fn version() -> Version {
-        Version::Exact("shell-0.1.0".into())
+    fn version_requirement() -> VersionReq {
+        VersionReq::parse(">=0.1.0").expect("correct version requirement")
     }
 }
 

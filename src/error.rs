@@ -1,4 +1,4 @@
-use crate::Version;
+use crate::{Version, VersionReq};
 
 /// Rscript public error
 #[derive(Debug)]
@@ -13,8 +13,8 @@ pub enum Error {
     ScriptVersionMismatch {
         /// The program actual version
         program_actual_version: Version,
-        /// The version of the program expected by the script
-        program_expected_version: Version,
+        /// The version required of the program by the script
+        program_required_version: VersionReq,
     },
 }
 impl std::fmt::Display for Error {
@@ -28,11 +28,11 @@ impl std::fmt::Display for Error {
             ),
             Error::ScriptVersionMismatch {
                 program_actual_version: program_version,
-                program_expected_version: script_version,
+                program_required_version: script_version,
             } => {
                 write!(
                     f,
-                    "The scripts expects version: {}, but the program have version: {}",
+                    "The scripts requires version: {}, but the program have version: {}",
                     program_version, script_version
                 )
             }

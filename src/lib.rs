@@ -29,6 +29,14 @@ use std::{
     process::{Child, Stdio},
 };
 
+// Rexport Version, VersionReq
+/// *SemVer version* as defined by <https://semver.org.>\
+/// The main crate must specify its version when adding scripts to [ScriptManager]
+pub use semver::Version;
+/// *SemVer version requirement* describing the intersection of some version comparators, such as >=1.2.3, <1.8.\
+/// Each script must specify the required version of the main crate when responding to [Message::Greeting]
+pub use semver::VersionReq;
+
 /// Module that contains traits that improves writing scripts experience
 pub mod scripting;
 
@@ -44,22 +52,8 @@ pub struct ScriptInfo {
     pub script_type: ScriptType,
     /// The hooks that the script wants to listen to
     pub hooks: Box<[String]>,
-    /// The version of the program that the script will run against
-    pub version: Version,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-/// The version of the program that the script will run against, currently only exact versioning is supported
-pub enum Version {
-    /// This exact version must match
-    Exact(String),
-}
-impl std::fmt::Display for Version {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Exact(version) => write!(f, "{}", version),
-        }
-    }
+    /// The version requirement of the program that the script will run against
+    pub version_requirement: VersionReq,
 }
 
 impl ScriptInfo {
@@ -68,19 +62,19 @@ impl ScriptInfo {
         name: &'static str,
         script_type: ScriptType,
         hooks: &'static [&'static str],
-        version: Version,
+        version_requirement: VersionReq,
     ) -> Self {
         Self {
             name: name.into(),
             script_type,
             hooks: hooks.iter().map(|hook| String::from(*hook)).collect(),
-            version,
+            version_requirement,
         }
     }
 }
 
 /// ScriptType: Daemon/OneShot
-/// - *OneShot* scripts are expected to be spawned(process::Command::new) by the main crate each time they are used, this should be preferred if performance and keeping state are not a concern since it has some nice advantage which is the allure of hot reloading (recompiling the script will affect the main crate while its running)
+/// - *OneShot* scripts are expected to be spawned(process::Command::new) by the main crate ach time they are used, this should be preferred if performance and keeping state are not a concern since it has some nice advantage which is the allure of hot reloading (recompiling the script will affect the main crate while its running)
 ///
 /// - *Daemon* scripts are expected to run indefinitely, the main advantage is better performance and keeping the state
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -112,7 +106,7 @@ pub enum Message {
 
 impl ScriptManager {
     /// Look for scripts in the specified folder\
-    /// It requires specifying a [Version] so the script manager can check for incompatibility and if that's the case it will return an error: [Error::ScriptVersionMismatch]\
+    /// It requires specifying a [VersionReq] so the script manager can check for incompatibility and if that's the case it will return an error: [Error::ScriptVersionMismatch]\
     /// The script manager will send a [Message::Greeting] for every script found and the scripts must respond with [ScriptInfo]
     ///
     /// ```rust, no_run
@@ -120,7 +114,7 @@ impl ScriptManager {
     /// let mut sm = ScriptManager::default();
     /// let scripts_path: std::path::PathBuf = todo!(); // Defined by the user
     /// const VERSION: &'static str = concat!("main_crate-", env!("CARGO_PKG_VERSION"));
-    /// sm.add_scripts_by_path(scripts_path, Version::Exact(VERSION.into()));
+    /// sm.add_scripts_by_path(scripts_path, Version::parse(VERSION).expect("version is correct"));
     /// ```
     pub fn add_scripts_by_path<P: AsRef<Path>>(
         &mut self,
@@ -142,10 +136,10 @@ impl ScriptManager {
             let metadata: ScriptInfo = bincode::deserialize_from(stdout)?;
 
             // Check if the provided version matches the script version
-            if version != &metadata.version {
+            if !metadata.version_requirement.matches(version) {
                 return Err(Error::ScriptVersionMismatch {
                     program_actual_version: version.clone(),
-                    program_expected_version: metadata.version,
+                    program_required_version: metadata.version_requirement,
                 });
             }
 
