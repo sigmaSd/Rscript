@@ -1,3 +1,6 @@
+*0.10.0*
+- Removed [Scripter::script_static_assert] , [Scripter::write] now does the compile time check instead (by changing its signature)
+
 *0.9.0*
 - Added a new public method to [scripting::Scripter] [Scripter::script_static_assert] which is useful to check at compile time if the script output matches the hook's expected output
 
