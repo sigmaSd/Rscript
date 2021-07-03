@@ -60,9 +60,10 @@ pub trait Scripter {
     fn read<H: Hook>() -> H {
         bincode::deserialize_from(std::io::stdin()).unwrap()
     }
-    /// Convenient method to write a value to stdout
-    fn write<T: serde::Serialize>(value: &T) {
-        bincode::serialize_into(std::io::stdout(), value).unwrap()
+    /// Convenient method to write a value to stdout\
+    /// It takes the hook as a type argument in-order to make sure that the output provided correspond to the hook's expected output
+    fn write<H: Hook>(output: &<H as Hook>::Output) {
+        bincode::serialize_into(std::io::stdout(), output).unwrap()
     }
     /// This function is the script entry point.\
     /// 1. It handles receiving [Message::Greeting] , responding with a [ScriptInfo] and exiting if the script type is [ScriptType::OneShot]
@@ -139,6 +140,4 @@ pub trait Scripter {
             }
         }
     }
-    /// Check at compile time that the script output matches the output expected by the provided hook
-    fn script_static_assert<H: Hook>(_output: &<H as Hook>::Output) {}
 }

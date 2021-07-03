@@ -24,15 +24,13 @@ impl Evaluator {
             shell_api::Eval::NAME => {
                 let eval_hook: shell_api::Eval = Self::read();
                 let shell_api::Eval(input) = eval_hook;
-                let output: String = self.eval(&input);
-                Self::write(&output);
-                Self::script_static_assert::<shell_api::Eval>(&output);
+                let output = self.eval(&input);
+                Self::write::<shell_api::Eval>(&output);
             }
             shell_api::Shutdown::NAME => {
                 let _eval_hook: shell_api::Shutdown = Self::read();
                 // stderr is *not* piped so it can be used by scripts
                 eprintln!("bye from shell-script");
-                Self::script_static_assert::<shell_api::Shutdown>(&());
             }
 
             _ => unreachable!(),

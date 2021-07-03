@@ -27,8 +27,7 @@ impl Randomize {
             shell_api::RandomNumber::NAME => {
                 let _hook: shell_api::RandomNumber = Self::read();
                 let output: usize = Self::random();
-                Self::write(&output);
-                Self::script_static_assert::<shell_api::RandomNumber>(&output);
+                Self::write::<shell_api::RandomNumber>(&output);
             }
             _ => unreachable!(),
         }
