@@ -20,8 +20,8 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Io(error) => write!(f, "{}", error),
-            Error::Bincode(error) => write!(f, "{}", error),
+            Error::Io(error) => std::fmt::Display::fmt(error, f),
+            Error::Bincode(error) => std::fmt::Display::fmt(error, f),
             Error::ScriptIsNotListeningForHook => write!(
                 f,
                 "Could not trigger the hook, because the script is not listening for it"
