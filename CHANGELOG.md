@@ -1,3 +1,6 @@
+*0.11.0*
+- Add Dynamic library scripts option (unsafe)
+
 *0.10.0*
 - Removed [Scripter::script_static_assert] , [Scripter::write] now does the compile time check instead (by changing its signature)
 
