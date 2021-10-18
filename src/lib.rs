@@ -25,6 +25,7 @@
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
+    env,
     path::Path,
     process::{Child, Stdio},
 };
@@ -73,7 +74,7 @@ impl ScriptInfo {
     }
 }
 
-/// ScriptType: Daemon/OneShot
+/// ScriptType: Daemon/OneShot/DynamicLib
 /// - *OneShot* scripts are expected to be spawned(process::Command::new) by the main crate ach time they are used, this should be preferred if performance and keeping state are not a concern since it has some nice advantage which is the allure of hot reloading (recompiling the script will affect the main crate while its running)
 ///
 /// - *Daemon* scripts are expected to run indefinitely, the main advantage is better performance and keeping the state
@@ -84,6 +85,8 @@ pub enum ScriptType {
     /// Scripts that runs indefinitely, it will continue to receive and send hooks while its
     /// running
     Daemon,
+    /// Script compiled as a dynamic library, this is completely unsafe
+    DynamicLib,
 }
 
 /// ScriptManager holds all the scripts found, it can be constructed with [ScriptManager::default]\
@@ -155,13 +158,61 @@ impl ScriptManager {
                 state: State::Active,
             })
         }
-
         let path = path.as_ref();
         for entry in std::fs::read_dir(path)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext == env::consts::DLL_EXTENSION {
+                        continue;
+                    }
+                }
                 self.scripts.push(start_script(&path, &version)?);
+            }
+        }
+        Ok(())
+    }
+    /// Same as [ScriptManager::add_scripts_by_path] but looks for dynamic libraries instead
+    ///
+    /// # Safety
+    /// Rust has no stable abi so this is completely unsafe
+    pub unsafe fn add_dynamic_scripts_by_path<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+        version: Version,
+    ) -> Result<(), Error> {
+        fn load_dynamic_library(path: &Path, version: &Version) -> Result<Script, Error> {
+            let (lib, metadata) = unsafe {
+                let lib = libloading::Library::new(path)?;
+                let metadata = {
+                    let func: libloading::Symbol<fn() -> ScriptInfo> = lib.get(b"script_info")?;
+                    func()
+                };
+                (lib, metadata)
+            };
+            if !metadata.version_requirement.matches(version) {
+                return Err(Error::ScriptVersionMismatch {
+                    program_actual_version: version.clone(),
+                    program_required_version: metadata.version_requirement,
+                });
+            }
+            Ok(Script {
+                script: ScriptTypeInternal::DynamicLib(lib),
+                metadata,
+                state: State::Active,
+            })
+        }
+        let path = path.as_ref();
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext == env::consts::DLL_EXTENSION {
+                        self.scripts.push(load_dynamic_library(&path, &version)?);
+                    }
+                }
             }
         }
         Ok(())
@@ -171,7 +222,7 @@ impl ScriptManager {
     pub fn trigger<'a, H: 'static + Hook>(
         &'a mut self,
         hook: H,
-    ) -> impl Iterator<Item = Result<<H as Hook>::Output, bincode::Error>> + 'a {
+    ) -> impl Iterator<Item = Result<<H as Hook>::Output, Error>> + 'a {
         self.scripts.iter_mut().filter_map(move |script| {
             if script.is_active() && script.is_listening_for::<H>() {
                 Some(script.trigger_internal(&hook))
@@ -215,6 +266,7 @@ enum State {
 enum ScriptTypeInternal {
     Daemon(Child),
     OneShot(std::path::PathBuf),
+    DynamicLib(libloading::Library),
 }
 
 impl Script {
@@ -246,7 +298,7 @@ impl Script {
     /// If the script is not listening for the specified hook, an error will be returned
     pub fn trigger<H: Hook>(&mut self, hook: &H) -> Result<<H as Hook>::Output, Error> {
         if self.is_listening_for::<H>() {
-            self.trigger_internal(hook).map_err(Error::Bincode)
+            self.trigger_internal(hook)
         } else {
             Err(Error::ScriptIsNotListeningForHook)
         }
@@ -255,33 +307,38 @@ impl Script {
 
 impl Script {
     // private
-    fn trigger_internal<H: Hook>(
-        &mut self,
-        hook: &H,
-    ) -> Result<<H as Hook>::Output, bincode::Error> {
-        let trigger_hook_common = |script: &mut Child| {
-            let mut stdin = script.stdin.as_mut().expect("stdin is piped");
-            let stdout = script.stdout.as_mut().expect("stdout is piped");
+    fn trigger_internal<H: Hook>(&mut self, hook: &H) -> Result<<H as Hook>::Output, Error> {
+        let trigger_hook_common =
+            |script: &mut Child| -> Result<<H as Hook>::Output, bincode::Error> {
+                let mut stdin = script.stdin.as_mut().expect("stdin is piped");
+                let stdout = script.stdout.as_mut().expect("stdout is piped");
 
-            // Send Execute message
-            bincode::serialize_into(&mut stdin, &Message::Execute)?;
-            // bincode write hook type
-            bincode::serialize_into(&mut stdin, H::NAME)?;
-            // bincode write hook
-            bincode::serialize_into(stdin, hook)?;
-            // bincode read result -> O
-            bincode::deserialize_from(stdout)
-        };
+                // Send Execute message
+                bincode::serialize_into(&mut stdin, &Message::Execute)?;
+                // bincode write hook type
+                bincode::serialize_into(&mut stdin, H::NAME)?;
+                // bincode write hook
+                bincode::serialize_into(stdin, hook)?;
+                // bincode read result -> O
+                bincode::deserialize_from(stdout)
+            };
 
-        match &mut self.script {
-            ScriptTypeInternal::Daemon(ref mut script) => trigger_hook_common(script),
+        Ok(match &mut self.script {
+            ScriptTypeInternal::Daemon(ref mut script) => trigger_hook_common(script)?,
             ScriptTypeInternal::OneShot(script_path) => trigger_hook_common(
                 &mut std::process::Command::new(script_path)
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
                     .spawn()?,
-            ),
-        }
+            )?,
+            ScriptTypeInternal::DynamicLib(lib) => unsafe {
+                #[allow(clippy::type_complexity)]
+                let script: libloading::Symbol<fn(&str, Vec<u8>) -> Vec<u8>> =
+                    lib.get(b"script")?;
+                let output = script(H::NAME, bincode::serialize(hook)?);
+                bincode::deserialize(&output)?
+            },
+        })
     }
     fn end(&mut self) {
         // This errors if the script has already exited

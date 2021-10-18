@@ -1,0 +1,14 @@
+[package]
+name = "echo-script"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bincode = "1.3.3"
+rscript = { path = "../../../../" }
+shell-api = { path = "../../shell-api/" }
+
+[lib]
+crate-type = ["dylib"]

@@ -16,6 +16,8 @@ pub enum Error {
         /// The version required of the program by the script
         program_required_version: VersionReq,
     },
+    /// Failed to load a dynamic libaray
+    DynamicLibError(libloading::Error),
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -36,6 +38,9 @@ impl std::fmt::Display for Error {
                     program_version, script_version
                 )
             }
+            Error::DynamicLibError(error) => {
+                write!(f, "Failed to load dynamic library:\n{}", error)
+            }
         }
     }
 }
@@ -50,5 +55,10 @@ impl From<std::io::Error> for Error {
 impl From<bincode::Error> for Error {
     fn from(error: bincode::Error) -> Self {
         Self::Bincode(error)
+    }
+}
+impl From<libloading::Error> for Error {
+    fn from(error: libloading::Error) -> Self {
+        Self::DynamicLibError(error)
     }
 }

@@ -14,12 +14,23 @@ fn main() {
     // FIXME: Auto compile instead
     let scripts_path = std::env::temp_dir().join("rscript_shell");
     let _ = std::fs::create_dir_all(&scripts_path);
+
+    // Add executable scripts
     script_manager
         .add_scripts_by_path(
-            scripts_path,
+            &scripts_path,
             Version::parse(VERSION).expect("version is correct"),
         )
         .unwrap();
+    // Add dynamic library scripts
+    unsafe {
+        script_manager
+            .add_dynamic_scripts_by_path(
+                &scripts_path,
+                Version::parse(VERSION).expect("version is correct"),
+            )
+            .unwrap();
+    }
 
     loop {
         let input = {
@@ -31,14 +42,11 @@ fn main() {
             break;
         }
 
-        let _ = mtry!({
-            // Many scripts can react to the same hook, we will just use the first one's response
-            let output = script_manager
-                .trigger(shell_api::Eval(input))
-                .next()?
-                .ok()?;
-            println!("{}", &output);
-        });
+        // Many scripts can react to the same hook => collect all results
+        let outputs: Vec<_> = script_manager.trigger(shell_api::Eval(input)).collect();
+        for out in outputs {
+            println!("Out: {:?}", out);
+        }
 
         let _ = mtry!({
             // Many scripts can react to the same hook, we will just use the first one's response
