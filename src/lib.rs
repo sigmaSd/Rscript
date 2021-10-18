@@ -41,6 +41,9 @@ pub use semver::VersionReq;
 /// Module that contains traits that improves writing scripts experience
 pub mod scripting;
 
+mod ffi;
+pub use ffi::FFiVec;
+
 mod error;
 pub use error::Error;
 
@@ -85,9 +88,15 @@ pub enum ScriptType {
     /// Scripts that runs indefinitely, it will continue to receive and send hooks while its
     /// running
     Daemon,
-    /// Script compiled as a dynamic library, this is completely unsafe
+    /// Script compiled as a dynamic library\
+    /// The scripts needs to export 2 functions:
+    /// - `#[no_mangle] pub extern "C" fn script_info() -> rscript::FFiVec;`
+    /// - `#[no_mangle] pub extern "C" fn script(hook: rscript::FFiVec, data: rscript::FFiVec) -> rscript::FFiVec;`
     DynamicLib,
 }
+
+const DYNAMIC_LIB_SCRIPT_INFO_FN: &[u8] = b"script_info";
+const DYNAMIC_LIB_SCRIPT_FN: &[u8] = b"script";
 
 /// ScriptManager holds all the scripts found, it can be constructed with [ScriptManager::default]\
 /// Initially its empty, to populate it, we can use one of the methods to add scripts, currently only [ScriptManager::add_scripts_by_path] is provided
@@ -176,7 +185,7 @@ impl ScriptManager {
     /// Same as [ScriptManager::add_scripts_by_path] but looks for dynamic libraries instead
     ///
     /// # Safety
-    /// Rust has no stable abi so this is completely unsafe
+    /// See <https://docs.rs/libloading/0.7.1/libloading/struct.Library.html#safety>
     pub unsafe fn add_dynamic_scripts_by_path<P: AsRef<Path>>(
         &mut self,
         path: P,
@@ -186,8 +195,9 @@ impl ScriptManager {
             let (lib, metadata) = unsafe {
                 let lib = libloading::Library::new(path)?;
                 let metadata = {
-                    let func: libloading::Symbol<fn() -> ScriptInfo> = lib.get(b"script_info")?;
-                    func()
+                    let func: libloading::Symbol<extern "C" fn() -> FFiVec> =
+                        lib.get(DYNAMIC_LIB_SCRIPT_INFO_FN)?;
+                    func().deserialize::<ScriptInfo>()?
                 };
                 (lib, metadata)
             };
@@ -333,10 +343,14 @@ impl Script {
             )?,
             ScriptTypeInternal::DynamicLib(lib) => unsafe {
                 #[allow(clippy::type_complexity)]
-                let script: libloading::Symbol<fn(&str, Vec<u8>) -> Vec<u8>> =
-                    lib.get(b"script")?;
-                let output = script(H::NAME, bincode::serialize(hook)?);
-                bincode::deserialize(&output)?
+                let script: libloading::Symbol<
+                    extern "C" fn(FFiVec, FFiVec) -> FFiVec,
+                > = lib.get(DYNAMIC_LIB_SCRIPT_FN)?; //b"script")?;
+                let output = script(
+                    FFiVec::serialize_from(&H::NAME)?,
+                    FFiVec::serialize_from(hook)?,
+                );
+                output.deserialize()?
             },
         })
     }
