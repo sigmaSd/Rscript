@@ -1,3 +1,6 @@
+*0.12.0*
+- Rework DynamicLib to use the C abi (in order to make it safe to use)
+
 *0.11.0*
 - Add Dynamic library scripts option (unsafe)
 
