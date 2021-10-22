@@ -72,8 +72,8 @@ pub trait Scripter {
         bincode::serialize_into(std::io::stdout(), output).unwrap()
     }
     /// This function is the script entry point.\
-    /// 1. It handles receiving [Message::Greeting] , responding with a [ScriptInfo] and exiting if the script type is [ScriptType::OneShot]
-    /// 2. It handles receiving hooks, the user is expected to provide a function that acts on a hook name, the user function should use the hook name to read the actual hook from stdin
+    /// 1. It handles the initial greeting and exiting if the script type is [ScriptType::OneShot]
+    /// 2. It handles receiving hooks, the user is expected to provide a function that acts on a hook name, the user function should use the hook name to read the actual hook from stdin using [Scripter::read]
     ///
     /// Example of a user function:
     /// ```rust

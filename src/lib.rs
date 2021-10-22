@@ -39,7 +39,7 @@ use std::{
 /// The main crate must specify its version when adding scripts to [ScriptManager]
 pub use semver::Version;
 /// *SemVer version requirement* describing the intersection of some version comparators, such as >=1.2.3, <1.8.\
-/// Each script must specify the required version of the main crate when responding to [Message::Greeting]
+/// Each script must specify the required version of the main crate
 pub use semver::VersionReq;
 
 pub mod scripting;
@@ -49,7 +49,7 @@ pub use error::Error;
 
 use crate::scripting::DynamicScript;
 
-/// Script metadata that every script should send to the main_crate  when starting up after receiving the greeting message [Message::Greeting]
+/// Script metadata that every script should send to the main_crate  when starting up
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ScriptInfo {
     /// Script name
@@ -113,7 +113,7 @@ pub struct ScriptManager {
 /// Greeting message must be sent when looking for scripts\
 /// Execute message must be sent each time a hook is triggered
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub enum Message {
+pub(crate) enum Message {
     /// Greet a script, the script must respond with [ScriptInfo]
     Greeting,
     /// Must be sent each time a hook is triggered
@@ -123,7 +123,6 @@ pub enum Message {
 impl ScriptManager {
     /// Look for scripts in the specified folder\
     /// It requires specifying a [VersionReq] so the script manager can check for incompatibility and if that's the case it will return an error: [Error::ScriptVersionMismatch]\
-    /// The script manager will send a [Message::Greeting] for every script found and the scripts must respond with [ScriptInfo]
     ///
     /// ```rust, no_run
     /// # use rscript::*;
