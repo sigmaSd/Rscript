@@ -1,3 +1,9 @@
+*0.15.0*
+- Remove `Message` from public API
+
+*0.14.0*
+- Improve DynamicLib scripts API
+
 *0.13.0*
 - Improve DynamicLib scripts API
 
