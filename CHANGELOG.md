@@ -1,3 +1,6 @@
+*0.13.0*
+- Improve DynamicLib scripts API
+
 *0.12.0*
 - Rework DynamicLib to use the C abi (in order to make it safe to use)
 
