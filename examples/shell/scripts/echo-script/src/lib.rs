@@ -1,4 +1,7 @@
-use rscript::{scripting::DynamicScript, scripting::FFiVec, Hook, ScriptInfo, VersionReq};
+use rscript::{
+    scripting::{DynamicScript, FFiData, FFiStr},
+    Hook, ScriptInfo, VersionReq,
+};
 
 #[no_mangle]
 pub static SCRIPT: DynamicScript = DynamicScript {
@@ -6,28 +9,26 @@ pub static SCRIPT: DynamicScript = DynamicScript {
     script,
 };
 
-pub extern "C" fn script_info() -> FFiVec {
+pub extern "C" fn script_info() -> FFiData {
     let metadata = ScriptInfo::new(
         "Echo",
         rscript::ScriptType::DynamicLib,
         &[shell_api::Eval::NAME, shell_api::Shutdown::NAME],
         VersionReq::parse(">=0.1.0").expect("correct version requirement"),
     );
-    FFiVec::serialize_from(&metadata).unwrap()
+    metadata.into_ffi_data()
 }
 
-pub extern "C" fn script(hook: FFiVec, data: FFiVec) -> FFiVec {
-    let hook: String = hook.deserialize().unwrap();
-
-    match hook.as_str() {
+pub extern "C" fn script(name: FFiStr, hook: FFiData) -> FFiData {
+    match name.as_str() {
         shell_api::Eval::NAME => {
-            let data: shell_api::Eval = data.deserialize().unwrap();
-            let output = data.0;
-            FFiVec::serialize_from(&output).unwrap()
+            let hook: shell_api::Eval = DynamicScript::read(hook);
+            let output = hook.0;
+            DynamicScript::write::<shell_api::Eval>(&output)
         }
         shell_api::Shutdown::NAME => {
             eprintln!("bye from hello-script");
-            FFiVec::serialize_from(&()).unwrap()
+            DynamicScript::write::<shell_api::Shutdown>(&())
         }
         _ => unreachable!(),
     }

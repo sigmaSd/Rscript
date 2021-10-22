@@ -23,7 +23,7 @@
 //!
 //! Check out the [examples](https://github.com/sigmaSd/Rscript/tree/master/examples) for more info.
 
-use scripting::FFiVec;
+use scripting::{FFiData, FFiStr};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     env,
@@ -39,7 +39,6 @@ pub use semver::Version;
 /// Each script must specify the required version of the main crate when responding to [Message::Greeting]
 pub use semver::VersionReq;
 
-/// Module that contains traits that improves writing scripts experience
 pub mod scripting;
 
 mod error;
@@ -74,6 +73,11 @@ impl ScriptInfo {
             hooks: hooks.iter().map(|hook| String::from(*hook)).collect(),
             version_requirement,
         }
+    }
+    /// Serialize `ScriptInfo` into `FFiData`
+    /// This is needed for writing [ScriptType::DynamicLib] scripts
+    pub fn into_ffi_data(self) -> FFiData {
+        FFiData::serialize_from(&self).expect("ScriptInfo is always serialize-able")
     }
 }
 
@@ -335,13 +339,9 @@ impl Script {
                     .spawn()?,
             )?,
             ScriptTypeInternal::DynamicLib(lib) => unsafe {
-                let scriptz: libloading::Symbol<&DynamicScript> = lib.get(DynamicScript::NAME)?;
-                let script = scriptz.script;
+                let script: libloading::Symbol<&DynamicScript> = lib.get(DynamicScript::NAME)?;
 
-                let output = script(
-                    FFiVec::serialize_from(&H::NAME)?,
-                    FFiVec::serialize_from(hook)?,
-                );
+                let output = (script.script)(FFiStr::new(H::NAME), FFiData::serialize_from(hook)?);
                 output.deserialize()?
             },
         })

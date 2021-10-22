@@ -1,3 +1,5 @@
+//! This modules contains all what is needed to write scripts
+
 use crate::{Hook, VersionReq};
 
 use super::{Message, ScriptInfo, ScriptType};
@@ -6,7 +8,8 @@ use std::ptr::slice_from_raw_parts;
 
 use serde::{de::DeserializeOwned, Serialize};
 
-/// Trait that can be implemented on a script abstraction struct\
+/// Trait that should be implemented on a script abstraction struct\
+/// This concerns [ScriptType::OneShot] and [ScriptType::Daemon]\
 /// The implementer should provide [Scripter::script_type], [Scripter::name], [Scripter::hooks] and [Scripter::version_requirement]\
 ///  The struct should call [Scripter::execute]\
 ///  ```rust, no_run
@@ -59,11 +62,11 @@ pub trait Scripter {
     fn version_requirement() -> VersionReq;
 
     // Provided methods
-    /// Convenient method to read a hook from stdin
+    /// Read a hook from stdin
     fn read<H: Hook>() -> H {
         bincode::deserialize_from(std::io::stdin()).unwrap()
     }
-    /// Convenient method to write a value to stdout\
+    /// Write a value to stdout\
     /// It takes the hook as a type argument in-order to make sure that the output provided correspond to the hook's expected output
     fn write<H: Hook>(output: &<H as Hook>::Output) {
         bincode::serialize_into(std::io::stdout(), output).unwrap()
@@ -147,50 +150,84 @@ pub trait Scripter {
 }
 
 #[repr(C)]
-/// A script compiled as dynamic library needs to export a static instance of this struct named [DynamicScript::NAME]
+/// A [ScriptType::DynamicLib] script needs to export a static instance of this struct named [DynamicScript::NAME]
 /// ```rs
 /// // In a script file
 /// #[no_mangle]
 /// pub static SCRIPT: DynamicScript = DynamicScript { script_info: .., script: .. };
+/// ```
+///
+///
+/// `DynamicScript` contains also methods for writing scripts: [DynamicScript::read], [DynamicScript::write]
 pub struct DynamicScript {
-    /// A function that returns `ScriptInfo` serialized as `FFiVec`\
+    /// A function that returns `ScriptInfo` serialized as `FFiData`\
     /// *fn() -> ScriptInfo*
-    pub script_info: extern "C" fn() -> FFiVec,
-    /// A function that accepts a hook name and the hook itself and returns the hook output, all serialized as `FFiVec`\
+    pub script_info: extern "C" fn() -> FFiData,
+    /// A function that accepts a hook name (casted to `FFiStr`) and the hook itself (serialized as `FFiData`)  and returns the hook output (serialized as `FFiData`)\
     /// *fn<H: Hook>(hook: &str (H::Name), data: H) -> <H as Hook>::Output>*
-    pub script: extern "C" fn(FFiVec, FFiVec) -> FFiVec,
+    pub script: extern "C" fn(FFiStr, FFiData) -> FFiData,
 }
 impl DynamicScript {
     /// ```rust
     /// pub const NAME: &'static [u8] = b"SCRIPT";
     /// ```
     pub const NAME: &'static [u8] = b"SCRIPT";
+
+    /// Read a hook from an FFiData
+    pub fn read<H: Hook>(hook: FFiData) -> H {
+        hook.deserialize().unwrap()
+    }
+    /// Write a value to an FFiData
+    /// It takes the hook as a type argument in-order to make sure that the output provided correspond to the hook's expected output
+    pub fn write<H: Hook>(output: &<H as Hook>::Output) -> FFiData {
+        FFiData::serialize_from(output).unwrap()
+    }
 }
 
-/// FFiVec should be used for communication between [super::ScriptType::DynamicLib] scripts and the main program
 #[repr(C)]
-pub struct FFiVec {
+/// `FFiStr` is used to send the hook name to [ScriptType::DynamicLib] script
+pub struct FFiStr {
+    ptr: *const u8,
+    len: usize,
+}
+impl FFiStr {
+    /// Create a `FFiStr` from a `&str`
+    pub fn new(string: &'static str) -> Self {
+        Self {
+            ptr: string as *const str as _,
+            len: string.len(),
+        }
+    }
+    /// Cast `FFiStr` to `&str`
+    pub fn as_str(&self) -> &str {
+        unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.ptr, self.len)) }
+    }
+}
+
+/// `FFiData` is used for communicating arbitrary data between [ScriptType::DynamicLib] scripts and the main program
+#[repr(C)]
+pub struct FFiData {
     ptr: *mut u8,
     len: usize,
     cap: usize,
 }
-impl FFiVec {
-    /// Crate a new FFiVec from any serialize-able data
-    pub fn serialize_from<D: Serialize>(data: &D) -> Result<Self, bincode::Error> {
+impl FFiData {
+    /// Crate a new FFiData from any serialize-able data
+    pub(crate) fn serialize_from<D: Serialize>(data: &D) -> Result<Self, bincode::Error> {
         let data = bincode::serialize(data)?;
         let mut vec = std::mem::ManuallyDrop::new(data);
         let ptr = vec.as_mut_ptr();
         let len = vec.len();
         let cap = vec.capacity();
-        Ok(FFiVec { ptr, len, cap })
+        Ok(FFiData { ptr, len, cap })
     }
     /// De-serialize into a concrete type
-    pub fn deserialize<D: DeserializeOwned>(&self) -> Result<D, bincode::Error> {
+    pub(crate) fn deserialize<D: DeserializeOwned>(&self) -> Result<D, bincode::Error> {
         let data: &[u8] = unsafe { &*slice_from_raw_parts(self.ptr, self.len) };
         bincode::deserialize(data)
     }
 }
-impl Drop for FFiVec {
+impl Drop for FFiData {
     fn drop(&mut self) {
         let _ = unsafe { Vec::from_raw_parts(self.ptr, self.len, self.cap) };
     }
