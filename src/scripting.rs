@@ -2,6 +2,9 @@ use crate::{Hook, VersionReq};
 
 use super::{Message, ScriptInfo, ScriptType};
 use std::io::Write;
+use std::ptr::slice_from_raw_parts;
+
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait that can be implemented on a script abstraction struct\
 /// The implementer should provide [Scripter::script_type], [Scripter::name], [Scripter::hooks] and [Scripter::version_requirement]\
@@ -140,5 +143,55 @@ pub trait Scripter {
                 return;
             }
         }
+    }
+}
+
+#[repr(C)]
+/// A script compiled as dynamic library needs to export a static instance of this struct named [DynamicScript::NAME]
+/// ```rs
+/// // In a script file
+/// #[no_mangle]
+/// pub static SCRIPT: DynamicScript = DynamicScript { script_info: .., script: .. };
+pub struct DynamicScript {
+    /// A function that returns `ScriptInfo` serialized as `FFiVec`\
+    /// *fn() -> ScriptInfo*
+    pub script_info: extern "C" fn() -> FFiVec,
+    /// A function that accepts a hook name and the hook itself and returns the hook output, all serialized as `FFiVec`\
+    /// *fn<H: Hook>(hook: &str (H::Name), data: H) -> <H as Hook>::Output>*
+    pub script: extern "C" fn(FFiVec, FFiVec) -> FFiVec,
+}
+impl DynamicScript {
+    /// ```rust
+    /// pub const NAME: &'static [u8] = b"SCRIPT";
+    /// ```
+    pub const NAME: &'static [u8] = b"SCRIPT";
+}
+
+/// FFiVec should be used for communication between [super::ScriptType::DynamicLib] scripts and the main program
+#[repr(C)]
+pub struct FFiVec {
+    ptr: *mut u8,
+    len: usize,
+    cap: usize,
+}
+impl FFiVec {
+    /// Crate a new FFiVec from any serialize-able data
+    pub fn serialize_from<D: Serialize>(data: &D) -> Result<Self, bincode::Error> {
+        let data = bincode::serialize(data)?;
+        let mut vec = std::mem::ManuallyDrop::new(data);
+        let ptr = vec.as_mut_ptr();
+        let len = vec.len();
+        let cap = vec.capacity();
+        Ok(FFiVec { ptr, len, cap })
+    }
+    /// De-serialize into a concrete type
+    pub fn deserialize<D: DeserializeOwned>(&self) -> Result<D, bincode::Error> {
+        let data: &[u8] = unsafe { &*slice_from_raw_parts(self.ptr, self.len) };
+        bincode::deserialize(data)
+    }
+}
+impl Drop for FFiVec {
+    fn drop(&mut self) {
+        let _ = unsafe { Vec::from_raw_parts(self.ptr, self.len, self.cap) };
     }
 }

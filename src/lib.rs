@@ -23,6 +23,7 @@
 //!
 //! Check out the [examples](https://github.com/sigmaSd/Rscript/tree/master/examples) for more info.
 
+use scripting::FFiVec;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     env,
@@ -41,11 +42,10 @@ pub use semver::VersionReq;
 /// Module that contains traits that improves writing scripts experience
 pub mod scripting;
 
-mod ffi;
-pub use ffi::FFiVec;
-
 mod error;
 pub use error::Error;
+
+use crate::scripting::DynamicScript;
 
 /// Script metadata that every script should send to the main_crate  when starting up after receiving the greeting message [Message::Greeting]
 #[derive(Serialize, Deserialize, Debug)]
@@ -81,6 +81,8 @@ impl ScriptInfo {
 /// - *OneShot* scripts are expected to be spawned(process::Command::new) by the main crate ach time they are used, this should be preferred if performance and keeping state are not a concern since it has some nice advantage which is the allure of hot reloading (recompiling the script will affect the main crate while its running)
 ///
 /// - *Daemon* scripts are expected to run indefinitely, the main advantage is better performance and keeping the state
+///
+/// - *DynamicLib* scripts compiled as dynamic libraries, the main advantage is even better performance, but this is the least safe option
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ScriptType {
     /// Scripts that is executed each time
@@ -89,16 +91,9 @@ pub enum ScriptType {
     /// running
     Daemon,
     /// Script compiled as a dynamic library\
-    /// It needs to:
-    /// - Be compiled with `crate-type = ["cdylib"]`
-    /// - Export 2 functions:
-    ///     - `#[no_mangle] pub extern "C" fn script_info() -> rscript::FFiVec;`
-    ///     - `#[no_mangle] pub extern "C" fn script(hook: rscript::FFiVec, data: rscript::FFiVec) -> rscript::FFiVec;`
+    /// It needs to export a static [DynamicScript] instance with [DynamicScript::NAME] as name (with `#[no_mangle]` attribute)
     DynamicLib,
 }
-
-const DYNAMIC_LIB_SCRIPT_INFO_FN: &[u8] = b"script_info";
-const DYNAMIC_LIB_SCRIPT_FN: &[u8] = b"script";
 
 /// ScriptManager holds all the scripts found, it can be constructed with [ScriptManager::default]\
 /// Initially its empty, to populate it, we can use one of the methods to add scripts, currently only [ScriptManager::add_scripts_by_path] is provided
@@ -194,15 +189,11 @@ impl ScriptManager {
         version: Version,
     ) -> Result<(), Error> {
         fn load_dynamic_library(path: &Path, version: &Version) -> Result<Script, Error> {
-            let (lib, metadata) = unsafe {
-                let lib = libloading::Library::new(path)?;
-                let metadata = {
-                    let func: libloading::Symbol<extern "C" fn() -> FFiVec> =
-                        lib.get(DYNAMIC_LIB_SCRIPT_INFO_FN)?;
-                    func().deserialize::<ScriptInfo>()?
-                };
-                (lib, metadata)
-            };
+            let lib = unsafe { libloading::Library::new(path)? };
+            let script: libloading::Symbol<&DynamicScript> =
+                unsafe { lib.get(DynamicScript::NAME)? };
+
+            let metadata: ScriptInfo = (script.script_info)().deserialize()?;
             if !metadata.version_requirement.matches(version) {
                 return Err(Error::ScriptVersionMismatch {
                     program_actual_version: version.clone(),
@@ -344,10 +335,9 @@ impl Script {
                     .spawn()?,
             )?,
             ScriptTypeInternal::DynamicLib(lib) => unsafe {
-                #[allow(clippy::type_complexity)]
-                let script: libloading::Symbol<
-                    extern "C" fn(FFiVec, FFiVec) -> FFiVec,
-                > = lib.get(DYNAMIC_LIB_SCRIPT_FN)?; //b"script")?;
+                let scriptz: libloading::Symbol<&DynamicScript> = lib.get(DynamicScript::NAME)?;
+                let script = scriptz.script;
+
                 let output = script(
                     FFiVec::serialize_from(&H::NAME)?,
                     FFiVec::serialize_from(hook)?,

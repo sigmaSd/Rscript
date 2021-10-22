@@ -1,6 +1,11 @@
-use rscript::{FFiVec, Hook, ScriptInfo, VersionReq};
+use rscript::{scripting::DynamicScript, scripting::FFiVec, Hook, ScriptInfo, VersionReq};
 
 #[no_mangle]
+pub static SCRIPT: DynamicScript = DynamicScript {
+    script_info,
+    script,
+};
+
 pub extern "C" fn script_info() -> FFiVec {
     let metadata = ScriptInfo::new(
         "Echo",
@@ -11,7 +16,6 @@ pub extern "C" fn script_info() -> FFiVec {
     FFiVec::serialize_from(&metadata).unwrap()
 }
 
-#[no_mangle]
 pub extern "C" fn script(hook: FFiVec, data: FFiVec) -> FFiVec {
     let hook: String = hook.deserialize().unwrap();
 

@@ -11,4 +11,4 @@ rscript = { path = "../../../../" }
 shell-api = { path = "../../shell-api/" }
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["cdylib"]
