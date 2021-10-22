@@ -89,9 +89,11 @@ pub enum ScriptType {
     /// running
     Daemon,
     /// Script compiled as a dynamic library\
-    /// The scripts needs to export 2 functions:
-    /// - `#[no_mangle] pub extern "C" fn script_info() -> rscript::FFiVec;`
-    /// - `#[no_mangle] pub extern "C" fn script(hook: rscript::FFiVec, data: rscript::FFiVec) -> rscript::FFiVec;`
+    /// It needs to:
+    /// - Be compiled with `crate-type = ["cdylib"]`
+    /// - Export 2 functions:
+    ///     - `#[no_mangle] pub extern "C" fn script_info() -> rscript::FFiVec;`
+    ///     - `#[no_mangle] pub extern "C" fn script(hook: rscript::FFiVec, data: rscript::FFiVec) -> rscript::FFiVec;`
     DynamicLib,
 }
 
