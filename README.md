@@ -17,13 +17,13 @@ Goals:
 This crate was extracted from [IRust](https://github.com/sigmaSd/IRust)
 
 Taking *IRust* as an example:
-- It has an API crate where hooks are defined [irust_api](https://github.com/sigmaSd/IRust/blob/master/crates/irust_api/src/lib.rs#L22)
+- It has an API crate where hooks are defined [irust_api](https://github.com/sigmaSd/IRust/blob/master/crates/irust_api/src/lib.rs)
 - It trigger hooks on the main crate [irust](https://github.com/sigmaSd/IRust/blob/master/crates/irust/src/irust.rs#L136)
 - And script examples:
-  - OneShot: [irust_prompt](https://github.com/sigmaSd/IRust/tree/master/script_examples/irust_prompt)
-  - Daemon: [vim_mode](https://github.com/sigmaSd/IRust/tree/master/script_examples/irust_vim)
-  - DynamicLirbary: [vim_mode_dylib](https://github.com/sigmaSd/IRust/tree/master/script_examples/irust_vim_dylib)
+    - OneShot: [irust_prompt](https://github.com/sigmaSd/IRust/tree/master/script_examples/irust_prompt)
+    - Daemon: [ipython_mode](https://github.com/sigmaSd/IRust/tree/master/script_examples/ipython)
+    - DynamicLibary: [vim_mode](https://github.com/sigmaSd/IRust/tree/master/script_examples/irust_vim_dylib)
 
-Check out the [examples](https://github.com/sigmaSd/Rscript/tree/master/examples) for more info
+Check out the [examples](https://github.com/sigmaSd/Rscript/tree/master/examples) for more info.
 
 License: MIT
