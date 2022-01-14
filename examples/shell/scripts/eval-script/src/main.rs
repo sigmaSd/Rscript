@@ -53,5 +53,5 @@ fn main() {
     let evaluator = Evaluator;
     Evaluator::execute(&mut |hook| {
         evaluator.run(hook);
-    });
+    }).unwrap();
 }

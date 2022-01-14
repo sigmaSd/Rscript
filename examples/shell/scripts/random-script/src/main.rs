@@ -52,5 +52,5 @@ fn main() {
     let randomize = Randomize;
     Randomize::execute(&mut |hook| {
         randomize.run(hook);
-    });
+    }).unwrap();
 }

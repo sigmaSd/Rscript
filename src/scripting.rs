@@ -103,7 +103,7 @@ pub trait Scripter {
     ///         _ => unreachable!()
     ///     }
     /// }
-    fn execute(func: &mut dyn FnMut(&str)) {
+    fn execute(func: &mut dyn FnMut(&str)) -> Result<(), bincode::Error> {
         // 1 - Handle greeting
         let mut stdin = std::io::stdin();
         let mut stdout = std::io::stdout();
@@ -143,13 +143,12 @@ pub trait Scripter {
 
             if matches!(Self::script_type(), ScriptType::OneShot) {
                 // if its OneShot we exit after one execution
-                return;
+                return Ok(());
             }
         }
     }
 }
 
-#[repr(C)]
 /// A [ScriptType::DynamicLib] script needs to export a static instance of this struct named [DynamicScript::NAME]
 /// ```rs
 /// // In a script file
@@ -159,6 +158,7 @@ pub trait Scripter {
 ///
 ///
 /// `DynamicScript` contains also methods for writing scripts: [DynamicScript::read], [DynamicScript::write]
+#[repr(C)]
 pub struct DynamicScript {
     /// A function that returns `ScriptInfo` serialized as `FFiData`\
     /// *fn() -> ScriptInfo*
