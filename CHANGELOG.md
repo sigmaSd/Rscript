@@ -1,3 +1,6 @@
+*0.17.0*
+- Propagate `Scripting::execute` errors to user
+
 *0.15.0*
 - Remove `Message` from public API
 
