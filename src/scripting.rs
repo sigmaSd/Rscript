@@ -103,12 +103,12 @@ pub trait Scripter {
     ///         _ => unreachable!()
     ///     }
     /// }
-    fn execute(func: &mut dyn FnMut(&str)) -> Result<(), bincode::Error> {
+    fn execute(func: &mut dyn FnMut(&str)) -> Result<(), super::Error> {
         // 1 - Handle greeting
         let mut stdin = std::io::stdin();
         let mut stdout = std::io::stdout();
 
-        let message: Message = bincode::deserialize_from(&mut stdin).unwrap();
+        let message: Message = bincode::deserialize_from(&mut stdin)?;
 
         if message == Message::Greeting {
             let metadata = ScriptInfo::new(
@@ -117,8 +117,8 @@ pub trait Scripter {
                 Self::hooks(),
                 Self::version_requirement(),
             );
-            bincode::serialize_into(&mut stdout, &metadata).unwrap();
-            stdout.flush().unwrap();
+            bincode::serialize_into(&mut stdout, &metadata)?;
+            stdout.flush()?;
 
             // if the script is OneShot it should exit, it will be run again but with message == [Message::Execute]
             if matches!(Self::script_type(), ScriptType::OneShot) {
@@ -133,13 +133,13 @@ pub trait Scripter {
         loop {
             // OneShot scripts handles greeting each time they are run, so [Message] is already received
             if matches!(Self::script_type(), ScriptType::Daemon) {
-                let _message: Message = bincode::deserialize_from(&mut stdin).unwrap();
+                let _message: Message = bincode::deserialize_from(&mut stdin)?;
             }
 
-            let hook_name: String = bincode::deserialize_from(&mut stdin).unwrap();
+            let hook_name: String = bincode::deserialize_from(&mut stdin)?;
 
             func(&hook_name);
-            std::io::stdout().flush().unwrap();
+            std::io::stdout().flush()?;
 
             if matches!(Self::script_type(), ScriptType::OneShot) {
                 // if its OneShot we exit after one execution
